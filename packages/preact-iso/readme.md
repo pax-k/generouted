@@ -27,10 +27,20 @@ export default defineConfig({
 
 ### 2. Create your main app file
 
+**For eager loading (default):**
 ```tsx
 // src/main.tsx
 import { render } from 'preact'
 import { Routes } from '@generouted/preact-iso'
+
+render(<Routes />, document.getElementById('app'))
+```
+
+**For lazy loading with code-splitting:**
+```tsx
+// src/main.tsx
+import { render } from 'preact'
+import { Routes } from '@generouted/preact-iso/lazy'
 
 render(<Routes />, document.getElementById('app'))
 ```
@@ -102,6 +112,21 @@ function UserPage() {
 - `src/pages/_app.tsx` → Root layout
 - `src/pages/404.tsx` → Not found page
 
+## Lazy Loading
+
+The lazy version (`@generouted/preact-iso/lazy`) uses preact-iso's built-in `lazy()` function to enable code-splitting and progressive hydration:
+
+- **Code-splitting**: Route components are loaded only when needed
+- **Progressive hydration**: When the app hydrates on the client, routes load asynchronously
+- **Seamless routing**: Current route stays visible while the next route loads in the background
+
+### Benefits of lazy loading:
+
+1. **Smaller initial bundle**: Only the current route is loaded initially
+2. **Better performance**: Reduced initial JavaScript payload
+3. **Progressive enhancement**: Routes load as users navigate
+4. **Automatic suspense**: preact-iso handles loading states automatically
+
 ## Differences from React Router adapter
 
 Since preact-iso has different capabilities compared to react-router, there are some limitations:
@@ -109,6 +134,7 @@ Since preact-iso has different capabilities compared to react-router, there are 
 1. **Modal routing**: Limited support compared to react-router due to preact-iso's simpler state management
 2. **Loaders/Actions**: Not supported in preact-iso
 3. **Nested routing**: Simplified compared to react-router's capabilities
+4. **Lazy loading**: Uses preact-iso's `lazy()` function instead of React's `React.lazy()`
 
 ## Plugin options
 

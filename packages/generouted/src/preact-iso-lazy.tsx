@@ -1,6 +1,6 @@
 import { Fragment, JSX, h } from 'preact'
 import { Suspense } from 'preact/compat'
-import { LocationProvider, Router, Route } from 'preact-iso'
+import { LocationProvider, Router, Route, lazy } from 'preact-iso'
 
 import { generateModalRoutes, generatePreservedRoutes, generateRegularRoutes } from './core'
 
@@ -9,39 +9,49 @@ type Module = { default: Element; Loader?: Function; Pending?: Element; Catch?: 
 
 const PRESERVED = import.meta.glob<Module>('/src/pages/(_app|404).{jsx,tsx}', { eager: true })
 const MODALS = import.meta.glob<Pick<Module, 'default'>>('/src/pages/**/[+]*.{jsx,tsx}', { eager: true })
-const ROUTES = import.meta.glob<Module>(
-  ['/src/pages/**/*.{jsx,tsx,mdx}', '!/src/pages/**/(_!(layout)*(/*)?|_app|404)*'],
-  { eager: true },
-)
+const ROUTES = import.meta.glob<Module>([
+  '/src/pages/**/*.{jsx,tsx,mdx}',
+  '!/src/pages/**/(_!(layout)*(/*)?|_app|404)*',
+])
 
 const preservedRoutes = generatePreservedRoutes<Omit<Module, 'Loader'>>(PRESERVED)
 const modalRoutes = generateModalRoutes<Element>(MODALS)
 
-type RouteProps = { path?: string; component: Element; children?: RouteProps[] }
+type RouteProps = { path?: string; component: any; children?: RouteProps[] }
 
-console.log('ROUTES found:', Object.keys(ROUTES))
-console.log('ROUTES content:', ROUTES)
+console.log('LAZY - ROUTES found:', Object.keys(ROUTES))
 
-const regularRoutes = generateRegularRoutes<RouteProps, Partial<Module>>(ROUTES, (module, key) => {
-  console.log('Processing route:', key, 'module:', module)
-  const Default = module?.default || Fragment
-  console.log('Default component:', Default)
-  
-  const Page = () => (module?.Pending ? h(Suspense, { fallback: h(module.Pending, {}) }, h(Default, {})) : h(Default, {}))
-  
-  return { 
-    component: module?.Catch ? 
-      () => {
-        try {
-          return h(Page, {})
-        } catch (error) {
-          return h(module.Catch!, { error })
+const regularRoutes = generateRegularRoutes<RouteProps, () => Promise<Partial<Module>>>(ROUTES, (module, key) => {
+  console.log('LAZY - Processing route:', key)
+  return {
+    component: lazy(async () => {
+      console.log('LAZY - Loading module for:', key)
+      const mod = await module()
+      console.log('LAZY - Module loaded:', mod)
+      const Default = mod?.default || Fragment
+      
+      // Create a component that handles pending and error states
+      const LazyComponent = (props: any) => {
+        console.log('LAZY - Rendering component for:', key)
+        const Page = () => (mod?.Pending ? h(Suspense, { fallback: h(mod.Pending, {}) }, h(Default, props)) : h(Default, props))
+        
+        if (mod?.Catch) {
+          try {
+            return h(Page, {})
+          } catch (error) {
+            return h(mod.Catch, { error })
+          }
         }
-      } : Page
+        
+        return h(Page, {})
+      }
+      
+      return LazyComponent
+    })
   }
 })
 
-console.log('Generated regular routes:', JSON.stringify(regularRoutes, (key, value) => {
+console.log('LAZY - Generated regular routes:', JSON.stringify(regularRoutes, (key, value) => {
   if (typeof value === 'function') return '[Function]'
   return value
 }, 2))
@@ -67,9 +77,7 @@ const App = ({ children }: { children?: any }) =>
 
 // Convert route tree to Route components
 const renderRoutes = (routes: RouteProps[]): JSX.Element[] => {
-  console.log('Rendering routes:', routes)
   return routes.map((route, index) => {
-    console.log('Rendering route:', route.path, 'component:', route.component)
     const Component = route.component
     if (route.children && route.children.length > 0) {
       return h(Route, { 
@@ -99,4 +107,4 @@ export const Routes = () => {
 }
 
 /** @deprecated `<Modals />` is no longer needed, it will be removed in future releases */
-export const Modals = () => (console.warn('[generouted] `<Modals />` will be removed in future releases'), null) 
+export const Modals = () => (console.warn('[generouted] `<Modals />` will be removed in future releases'), null)

@@ -1,1 +1,1 @@
-export * from 'generouted/preact-iso/lazy' 
+export * from 'generouted/preact-iso-lazy' 
